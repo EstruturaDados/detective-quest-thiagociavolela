@@ -1,123 +1,132 @@
 /*
     ============================================================================
-                        DETECTIVE QUEST – NÍVEL AVENTUREIRO
-                    Árvore de Busca para Armazenar Pistas (BST)
+                        DETECTIVE QUEST – NÍVEL MESTRE
+            Hash Table de Suspeitos com Lista Encadeada de Pistas
     ============================================================================
-
+    
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#define TAM_HASH 5
+
 // -----------------------------------------------------------------------------
-// STRUCT DA PISTA (BST)
+// STRUCT DE LISTA DE PISTAS
 // -----------------------------------------------------------------------------
-typedef struct Pista {
+typedef struct NoPista {
     char texto[80];
-    struct Pista* esq;
-    struct Pista* dir;
-} Pista;
+    struct NoPista* prox;
+} NoPista;
 
 // -----------------------------------------------------------------------------
-// FUNÇÕES DE ARVORE BST
+// STRUCT DO SUSPEITO
 // -----------------------------------------------------------------------------
-Pista* criarPista(const char* texto) {
-    Pista* nova = (Pista*)malloc(sizeof(Pista));
-    strcpy(nova->texto, texto);
-    nova->esq = NULL;
-    nova->dir = NULL;
-    return nova;
-}
-
-Pista* inserirBST(Pista* raiz, const char* texto) {
-    if (raiz == NULL)
-        return criarPista(texto);
-
-    if (strcmp(texto, raiz->texto) < 0)
-        raiz->esq = inserirBST(raiz->esq, texto);
-    else
-        raiz->dir = inserirBST(raiz->dir, texto);
-
-    return raiz;
-}
-
-void listarEmOrdem(Pista* raiz) {
-    if (raiz == NULL) return;
-    listarEmOrdem(raiz->esq);
-    printf("- %s\n", raiz->texto);
-    listarEmOrdem(raiz->dir);
-}
-
-// -----------------------------------------------------------------------------
-// SALAS
-// -----------------------------------------------------------------------------
-typedef struct Sala {
+typedef struct Suspeito {
     char nome[40];
-    char pista[80];
-    struct Sala *esq, *dir;
-} Sala;
+    int contador;
+    NoPista* pistas;
+    struct Suspeito* prox;  // lista encadeada para colisões
+} Suspeito;
 
-Sala* criarSala(const char* nome, const char* pista) {
-    Sala* nova = (Sala*)malloc(sizeof(Sala));
-    strcpy(nova->nome, nome);
-    strcpy(nova->pista, pista);
-    nova->esq = nova->dir = NULL;
-    return nova;
+// -----------------------------------------------------------------------------
+// HASH
+// -----------------------------------------------------------------------------
+int funcaoHash(const char* nome) {
+    return (nome[0] % TAM_HASH);
 }
 
-// -----------------------------------------------------------------------------
-// EXPLORAÇÃO COLETANDO PISTAS
-// -----------------------------------------------------------------------------
-void explorar(Sala* salaAtual, Pista** arvorePistas) {
-    char op;
+Suspeito* criarSuspeito(const char* nome) {
+    Suspeito* s = (Suspeito*)malloc(sizeof(Suspeito));
+    strcpy(s->nome, nome);
+    s->contador = 0;
+    s->pistas = NULL;
+    s->prox = NULL;
+    return s;
+}
 
-    do {
-        printf("\nVocê está em: %s", salaAtual->nome);
+void inserirPistaHash(Suspeito* tabela[], const char* suspeito, const char* pista) {
+    int indice = funcaoHash(suspeito);
 
-        if (strlen(salaAtual->pista) > 0) {
-            printf("\nPista encontrada: %s\n", salaAtual->pista);
-            *arvorePistas = inserirBST(*arvorePistas, salaAtual->pista);
+    Suspeito* atual = tabela[indice];
+    Suspeito* anterior = NULL;
+
+    while (atual != NULL && strcmp(atual->nome, suspeito) != 0) {
+        anterior = atual;
+        atual = atual->prox;
+    }
+
+    if (atual == NULL) {
+        atual = criarSuspeito(suspeito);
+        if (anterior == NULL)
+            tabela[indice] = atual;
+        else
+            anterior->prox = atual;
+    }
+
+    NoPista* nova = (NoPista*)malloc(sizeof(NoPista));
+    strcpy(nova->texto, pista);
+    nova->prox = atual->pistas;
+    atual->pistas = nova;
+
+    atual->contador++;
+}
+
+void listarAssociacoes(Suspeito* tabela[]) {
+    printf("\n===== SUSPEITOS E PISTAS =====\n");
+
+    for (int i = 0; i < TAM_HASH; i++) {
+        Suspeito* s = tabela[i];
+
+        while (s) {
+            printf("\nSuspeito: %s (%d pistas)\n", s->nome, s->contador);
+
+            NoPista* p = s->pistas;
+            while (p) {
+                printf(" - %s\n", p->texto);
+                p = p->prox;
+            }
+
+            s = s->prox;
         }
+    }
+}
 
-        printf("\ne - esquerda | d - direita | p - listar pistas | s - sair\n");
-        printf("Escolha: ");
-        scanf(" %c", &op);
+void suspeitoMaisProvavel(Suspeito* tabela[]) {
+    Suspeito* maior = NULL;
 
-        if (op == 'e' && salaAtual->esq) salaAtual = salaAtual->esq;
-        else if (op == 'd' && salaAtual->dir) salaAtual = salaAtual->dir;
-        else if (op == 'p') {
-            printf("\n===== PISTAS COLETADAS =====\n");
-            listarEmOrdem(*arvorePistas);
+    for (int i = 0; i < TAM_HASH; i++) {
+        Suspeito* s = tabela[i];
+        while (s) {
+            if (maior == NULL || s->contador > maior->contador)
+                maior = s;
+            s = s->prox;
         }
-        else if (op == 's') {
-            printf("\nSaindo da exploração...\n");
-            return;
-        }
-        else printf("Opção inválida!\n");
+    }
 
-    } while (1);
+    if (maior)
+        printf("\n🎯 Suspeito mais provável: %s (%d pistas)\n",
+               maior->nome, maior->contador);
+    else
+        printf("\nNenhuma pista registrada.\n");
 }
 
 // -----------------------------------------------------------------------------
 // MAIN
 // -----------------------------------------------------------------------------
 int main() {
-    printf("\n===== DETECTIVE QUEST – NÍVEL AVENTUREIRO =====\n");
+    printf("\n===== DETECTIVE QUEST – NÍVEL MESTRE =====\n");
 
-    Pista* arvorePistas = NULL;
+    Suspeito* tabela[TAM_HASH] = {0};
 
-    // Criar árvore de salas com pistas
-    Sala* hall = criarSala("Hall de Entrada", "Pegadas suspeitas");
-    Sala* biblioteca = criarSala("Biblioteca", "Livro rasgado encontrado");
-    Sala* cozinha = criarSala("Cozinha", "");
-    Sala* sotao = criarSala("Sótão", "Manchas de tinta no chão");
+    inserirPistaHash(tabela, "Sr. Black", "Pegadas suspeitas");
+    inserirPistaHash(tabela, "Sra. White", "Livro rasgado");
+    inserirPistaHash(tabela, "Sr. Black", "Tinta no chão");
+    inserirPistaHash(tabela, "Coronel Mustard", "Arma enferrujada");
 
-    hall->esq = biblioteca;
-    hall->dir = cozinha;
-    biblioteca->esq = sotao;
-
-    explorar(hall, &arvorePistas);
+    listarAssociacoes(tabela);
+    suspeitoMaisProvavel(tabela);
 
     return 0;
 }
