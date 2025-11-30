@@ -1,7 +1,7 @@
 /*
     ============================================================================
-                        DETECTIVE QUEST – NÍVEL NOVATO
-                        Mapa da Mansão com Árvore Binária
+                        DETECTIVE QUEST – NÍVEL AVENTUREIRO
+                    Árvore de Busca para Armazenar Pistas (BST)
     ============================================================================
 
 */
@@ -11,50 +11,90 @@
 #include <string.h>
 
 // -----------------------------------------------------------------------------
-// STRUCT DA SALA
+// STRUCT DA PISTA (BST)
 // -----------------------------------------------------------------------------
-typedef struct Sala {
-    char nome[40];
-    struct Sala *esq;
-    struct Sala *dir;
-} Sala;
+typedef struct Pista {
+    char texto[80];
+    struct Pista* esq;
+    struct Pista* dir;
+} Pista;
 
 // -----------------------------------------------------------------------------
-// FUNÇÕES
+// FUNÇÕES DE ARVORE BST
 // -----------------------------------------------------------------------------
-Sala* criarSala(const char* nome) {
-    Sala* nova = (Sala*)malloc(sizeof(Sala));
-    strcpy(nova->nome, nome);
+Pista* criarPista(const char* texto) {
+    Pista* nova = (Pista*)malloc(sizeof(Pista));
+    strcpy(nova->texto, texto);
     nova->esq = NULL;
     nova->dir = NULL;
     return nova;
 }
 
-void explorarSalas(Sala* salaAtual) {
-    char opcao;
+Pista* inserirBST(Pista* raiz, const char* texto) {
+    if (raiz == NULL)
+        return criarPista(texto);
+
+    if (strcmp(texto, raiz->texto) < 0)
+        raiz->esq = inserirBST(raiz->esq, texto);
+    else
+        raiz->dir = inserirBST(raiz->dir, texto);
+
+    return raiz;
+}
+
+void listarEmOrdem(Pista* raiz) {
+    if (raiz == NULL) return;
+    listarEmOrdem(raiz->esq);
+    printf("- %s\n", raiz->texto);
+    listarEmOrdem(raiz->dir);
+}
+
+// -----------------------------------------------------------------------------
+// SALAS
+// -----------------------------------------------------------------------------
+typedef struct Sala {
+    char nome[40];
+    char pista[80];
+    struct Sala *esq, *dir;
+} Sala;
+
+Sala* criarSala(const char* nome, const char* pista) {
+    Sala* nova = (Sala*)malloc(sizeof(Sala));
+    strcpy(nova->nome, nome);
+    strcpy(nova->pista, pista);
+    nova->esq = nova->dir = NULL;
+    return nova;
+}
+
+// -----------------------------------------------------------------------------
+// EXPLORAÇÃO COLETANDO PISTAS
+// -----------------------------------------------------------------------------
+void explorar(Sala* salaAtual, Pista** arvorePistas) {
+    char op;
 
     do {
-        printf("\nVocê está em: %s\n", salaAtual->nome);
-        printf("Para onde deseja ir?\n");
-        printf("e - Ir para a esquerda\n");
-        printf("d - Ir para a direita\n");
-        printf("s - Sair da mansão\n");
-        printf("Escolha: ");
-        scanf(" %c", &opcao);
+        printf("\nVocê está em: %s", salaAtual->nome);
 
-        if (opcao == 'e' && salaAtual->esq != NULL) {
-            salaAtual = salaAtual->esq;
+        if (strlen(salaAtual->pista) > 0) {
+            printf("\nPista encontrada: %s\n", salaAtual->pista);
+            *arvorePistas = inserirBST(*arvorePistas, salaAtual->pista);
         }
-        else if (opcao == 'd' && salaAtual->dir != NULL) {
-            salaAtual = salaAtual->dir;
+
+        printf("\ne - esquerda | d - direita | p - listar pistas | s - sair\n");
+        printf("Escolha: ");
+        scanf(" %c", &op);
+
+        if (op == 'e' && salaAtual->esq) salaAtual = salaAtual->esq;
+        else if (op == 'd' && salaAtual->dir) salaAtual = salaAtual->dir;
+        else if (op == 'p') {
+            printf("\n===== PISTAS COLETADAS =====\n");
+            listarEmOrdem(*arvorePistas);
         }
-        else if (opcao == 's') {
-            printf("\nExploração encerrada.\n");
+        else if (op == 's') {
+            printf("\nSaindo da exploração...\n");
             return;
         }
-        else {
-            printf("Caminho inexistente!\n");
-        }
+        else printf("Opção inválida!\n");
 
     } while (1);
 }
@@ -63,21 +103,21 @@ void explorarSalas(Sala* salaAtual) {
 // MAIN
 // -----------------------------------------------------------------------------
 int main() {
+    printf("\n===== DETECTIVE QUEST – NÍVEL AVENTUREIRO =====\n");
 
-    // Criação fixa da árvore de salas
-    Sala* hall = criarSala("Hall de Entrada");
-    Sala* biblioteca = criarSala("Biblioteca");
-    Sala* cozinha = criarSala("Cozinha");
-    Sala* sotao = criarSala("Sótão");
-    Sala* jardim = criarSala("Jardim");
+    Pista* arvorePistas = NULL;
+
+    // Criar árvore de salas com pistas
+    Sala* hall = criarSala("Hall de Entrada", "Pegadas suspeitas");
+    Sala* biblioteca = criarSala("Biblioteca", "Livro rasgado encontrado");
+    Sala* cozinha = criarSala("Cozinha", "");
+    Sala* sotao = criarSala("Sótão", "Manchas de tinta no chão");
 
     hall->esq = biblioteca;
     hall->dir = cozinha;
     biblioteca->esq = sotao;
-    biblioteca->dir = jardim;
 
-    printf("\n===== DETECTIVE QUEST – NÍVEL NOVATO =====\n");
-    explorarSalas(hall);
+    explorar(hall, &arvorePistas);
 
     return 0;
 }
